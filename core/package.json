@@ -112,6 +112,7 @@
     "recursive-readdir": "^2.2.2",
     "request": "^2.88.2",
     "request-promise": "^4.2.5",
+    "set-cookie-parser": "^2.4.6",
     "slash": "^3.0.0",
     "source-map-support": "^0.5.19",
     "split": "^1.0.1",

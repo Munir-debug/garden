@@ -19,7 +19,7 @@ import { LogEntry } from "../logger/log-entry"
 import { got } from "../util/http"
 import { RuntimeError, InternalError } from "../exceptions"
 import { gardenEnv } from "../constants"
-
+import setCookie from "set-cookie-parser"
 // If a GARDEN_AUTH_TOKEN is present and Garden is NOT running from a workflow runner pod,
 // switch to ci-token authentication method.
 export const authTokenHeader =
@@ -72,14 +72,18 @@ export async function checkClientAuthToken(token: string, enterpriseDomain: stri
   let valid = false
   try {
     log.debug(`Checking client auth token with platform: ${enterpriseDomain}/token/verify`)
-    await got({
+    const res = await got({
       method: "get",
       url: `${enterpriseDomain}/token/verify`,
       headers: makeAuthHeader(token),
     })
     valid = true
+
+    console.log("woo -->", res.headers)
+
   } catch (err) {
     const res = err.response
+    console.log("woo -->", res.headers)
     if (res && res.statusCode === 401) {
       valid = false
     } else {
