@@ -7,6 +7,7 @@
  */
 
 import qs = require("qs")
+import { add } from "date-fns"
 import open from "open"
 import { Server } from "http"
 import Koa from "koa"
@@ -19,7 +20,6 @@ import { LogEntry } from "../logger/log-entry"
 import { got } from "../util/http"
 import { RuntimeError, InternalError } from "../exceptions"
 import { gardenEnv } from "../constants"
-import setCookie from "set-cookie-parser"
 // If a GARDEN_AUTH_TOKEN is present and Garden is NOT running from a workflow runner pod,
 // switch to ci-token authentication method.
 export const authTokenHeader =
@@ -27,6 +27,12 @@ export const authTokenHeader =
 export const makeAuthHeader = (clientAuthToken: string) => ({ [authTokenHeader]: clientAuthToken })
 
 // TODO: Add error handling and tests for all of this
+
+interface AuthTokenResponse {
+  token: string
+  refreshToken: string
+  tokenValidity: number
+}
 
 /**
  * Logs in to Garden Enterprise if needed, and returns a valid client auth token.
@@ -49,20 +55,20 @@ export async function login(enterpriseDomain: string, log: LogEntry): Promise<st
   const events = new EventEmitter2()
   const server = new AuthRedirectServer(enterpriseDomain, events, log)
   log.debug(`Redirecting to Garden Enterprise login page...`)
-  const newToken: string = await new Promise(async (resolve, _reject) => {
+  const response: AuthTokenResponse = await new Promise(async (resolve, _reject) => {
     // The server resolves the promise with the new auth token once it's received the redirect.
     await server.start()
-    events.once("receivedToken", ({ token }: { token: string }) => {
+    events.once("receivedToken", (tokenResponse: AuthTokenResponse) => {
       log.debug("Received client auth token.")
-      resolve(token)
+      resolve(tokenResponse)
     })
   })
   await server.close()
-  if (!newToken) {
+  if (!response) {
     throw new InternalError(`Error: Did not receive an auth token after logging in.`, {})
   }
-  await saveAuthToken(newToken, log)
-  return newToken
+  await saveAuthToken(response, log)
+  return response.token
 }
 
 /**
@@ -80,7 +86,6 @@ export async function checkClientAuthToken(token: string, enterpriseDomain: stri
     valid = true
 
     console.log("woo -->", res.headers)
-
   } catch (err) {
     const res = err.response
     console.log("woo -->", res.headers)
@@ -99,18 +104,50 @@ export async function checkClientAuthToken(token: string, enterpriseDomain: stri
  *
  * This also covers the inconsistent/erroneous case of more than one auth token existing in the local store.
  */
-export async function saveAuthToken(token: string, log: LogEntry) {
+export async function saveAuthToken(tokenResponse: AuthTokenResponse, log: LogEntry) {
   try {
     const manager = ClientAuthToken.getConnection().manager
     await manager.transaction(async (transactionalEntityManager) => {
       await transactionalEntityManager.clear(ClientAuthToken)
-      await transactionalEntityManager.save(ClientAuthToken, ClientAuthToken.create({ token }))
+      await transactionalEntityManager.save(
+        ClientAuthToken,
+        ClientAuthToken.create({
+          token: tokenResponse.token,
+          refreshToken: tokenResponse.refreshToken,
+          validity: add(new Date(), { seconds: tokenResponse.tokenValidity / 1000 }),
+        })
+      )
     })
     log.debug("Saved client auth token to local config db")
   } catch (error) {
     log.error(`An error occurred while saving client auth token to local config db:\n${error.message}`)
   }
 }
+
+// /**
+//  * We make a transaction deleting all existing client auth tokens and creating a new token.
+//  *
+//  * This also covers the inconsistent/erroneous case of more than one auth token existing in the local store.
+//  */
+// export async function refreshToken(log: LogEntry) {
+//   try {
+//     const manager = ClientAuthToken.getConnection().manager
+//     await manager.transaction(async (transactionalEntityManager) => {
+//       await transactionalEntityManager.clear(ClientAuthToken)
+//       await transactionalEntityManager.save(
+//         ClientAuthToken,
+//         ClientAuthToken.create({
+//           token: tokenResponse.token,
+//           refreshToken: tokenResponse.refreshToken,
+//           validity: add(new Date(), { seconds: tokenResponse.tokenValidity / 1000 }),
+//         })
+//       )
+//     })
+//     log.debug("Saved client auth token to local config db")
+//   } catch (error) {
+//     log.error(`An error occurred while saving client auth token to local config db:\n${error.message}`)
+//   }
+// }
 
 /**
  * If a persisted client auth token was found, or if the GARDEN_AUTH_TOKEN environment variable is present, returns it.
@@ -197,10 +234,15 @@ export class AuthRedirectServer {
     const app = new Koa()
     const http = new Router()
     http.get("/", async (ctx) => {
-      const token = ctx.request.query.jwt
+      const { jwt, rt, jwtval } = ctx.request.query
+      const tokenResponse: AuthTokenResponse = {
+        token: jwt,
+        refreshToken: rt,
+        tokenValidity: jwtval,
+      }
       this.log.debug("Received client auth token")
-      this.events.emit("receivedToken", { token })
-      ctx.redirect("http://www.garden.io")
+      this.events.emit("receivedToken", tokenResponse)
+      ctx.redirect(`${this.enterpriseDomain}`)
     })
     app.use(bodyParser())
     app.use(http.allowedMethods())

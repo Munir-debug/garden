@@ -11,9 +11,10 @@ import { Events, EventName, EventBus, eventNames } from "../events"
 import { LogEntryMetadata, LogEntry } from "../logger/log-entry"
 import { chainMessages } from "../logger/renderers"
 import { got } from "../util/http"
-import { makeAuthHeader } from "./auth"
+
 import { LogLevel } from "../logger/log-node"
 import { Garden } from "../garden"
+import { makeAuthHeader } from "./api"
 
 export type StreamEvent = {
   name: EventName
