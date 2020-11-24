@@ -35,12 +35,10 @@ import { generateBasicDebugInfoReport } from "../commands/get/get-debug-info"
 import { AnalyticsHandler } from "../analytics/analytics"
 import { defaultDotIgnoreFiles } from "../util/fs"
 import { BufferedEventStream } from "../enterprise/buffered-event-stream"
-import { makeEnterpriseContext } from "../enterprise/init"
 import { GardenProcess } from "../db/entities/garden-process"
 import { DashboardEventStream } from "../server/dashboard-event-stream"
 import { GardenPlugin } from "../types/plugin/plugin"
 import { renderError } from "../logger/renderers"
-import { findProjectConfig } from "../config/base"
 import { EnterpriseApi } from "../enterprise/api"
 
 export async function makeDummyGarden(root: string, gardenOpts: GardenOpts = {}) {
@@ -209,11 +207,16 @@ ${renderCommands(commands)}
 
     // Init enterprise API
     const enterpriseApi = new EnterpriseApi(log)
+    await enterpriseApi.init(root, command)
 
     // Init event & log streaming.
     const sessionId = uuidv4()
-    const bufferedEventStream = new BufferedEventStream(log, sessionId)
-    const dashboardEventStream = new DashboardEventStream(log, sessionId)
+    const bufferedEventStream = new BufferedEventStream({
+      log,
+      enterpriseApi,
+      sessionId,
+    })
+    const dashboardEventStream = new DashboardEventStream({ log, sessionId })
 
     const contextOpts: GardenOpts = {
       commandInfo: {
@@ -227,6 +230,7 @@ ${renderCommands(commands)}
       forceRefresh,
       variables: parsedCliVars,
       plugins: this.plugins,
+      enterpriseApi,
     }
 
     let garden: Garden
@@ -284,16 +288,13 @@ ${renderCommands(commands)}
           }
         }
 
-        const enterpriseContext = makeEnterpriseContext(garden)
-        if (enterpriseContext) {
+        if (enterpriseApi.getDomain()) {
           log.silly(`Connecting Garden instance to GE BufferedEventStream`)
           bufferedEventStream.connect({
             garden,
             targets: [
               {
-                host: enterpriseContext.enterpriseDomain,
                 enterprise: true,
-                clientAuthToken: enterpriseContext.clientAuthToken,
               },
             ],
           })

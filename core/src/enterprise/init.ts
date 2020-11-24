@@ -9,16 +9,15 @@
 import chalk from "chalk"
 import dedent from "dedent"
 import { LogEntry } from "../logger/log-entry"
-import { readAuthToken, checkClientAuthToken } from "./auth"
 import { deline } from "../util/string"
 import { getSecrets } from "./secrets"
 import { StringMap } from "../config/common"
-import { Garden } from "../garden"
+import { EnterpriseApi } from "./api"
 
 export interface EnterpriseInitParams {
   log: LogEntry
   projectId: string | null
-  enterpriseDomain: string | null
+  enterpriseApi: EnterpriseApi
   environmentName: string
 }
 
@@ -28,14 +27,14 @@ export interface GardenEnterpriseContext {
   enterpriseDomain: string
 }
 
-export async function enterpriseInit({ log, projectId, enterpriseDomain, environmentName }: EnterpriseInitParams) {
-  const clientAuthToken = await readAuthToken(log)
+export async function enterpriseInit({ log, projectId, enterpriseApi, environmentName }: EnterpriseInitParams) {
+  const clientAuthToken = await enterpriseApi.readAuthToken()
   let secrets: StringMap = {}
   // If a client auth token exists in local storage, we assume that the user wants to be logged in.
   if (clientAuthToken) {
-    if (!enterpriseDomain || !projectId) {
+    if (!enterpriseApi.getDomain() || !projectId) {
       const errorMessages: string[] = []
-      if (!enterpriseDomain) {
+      if (!enterpriseApi.getDomain()) {
         errorMessages.push(deline`
           ${chalk.bold("project.domain")} is not set in your project-level ${chalk.bold("garden.yml")}. Make sure it
           is set to the appropriate API backend endpoint (e.g. http://myusername-cloud-api.cloud.dev.garden.io,
@@ -57,16 +56,16 @@ export async function enterpriseInit({ log, projectId, enterpriseDomain, environ
         )
       }
     } else {
-      const tokenIsValid = await checkClientAuthToken(clientAuthToken, enterpriseDomain, log)
+      const tokenIsValid = await enterpriseApi.checkClientAuthToken(log)
       if (tokenIsValid) {
         secrets = await getSecrets({
           projectId,
-          enterpriseDomain,
+          enterpriseApi,
           clientAuthToken,
           log,
           environmentName,
         })
-        log.silly(`Fetched ${Object.keys(secrets).length} secrets from ${enterpriseDomain}`)
+        log.silly(`Fetched ${Object.keys(secrets).length} secrets from ${enterpriseApi.getDomain()}`)
       } else {
         log.warn(deline`
           You were previously logged in to Garden Enterprise, but your session has expired or is invalid. Please run
@@ -78,32 +77,4 @@ export async function enterpriseInit({ log, projectId, enterpriseDomain, environ
   }
 
   return { clientAuthToken, secrets }
-}
-
-/**
- * Returns null if one or more parameters are null.
- *
- * Returns a `GardenEnterpriseContext` otherwise.
- */
-export function makeEnterpriseContext(garden: Garden): GardenEnterpriseContext | null {
-  const missing: string[] = []
-  if (!garden.clientAuthToken) {
-    missing.push("client auth token")
-  }
-  if (!garden.projectId) {
-    missing.push("project id")
-  }
-  if (!garden.enterpriseDomain) {
-    missing.push("domain")
-  }
-  if (missing.length > 0) {
-    garden.log.silly(`Enterprise features disabled. Missing values: ${missing.join(",")}`)
-    return null
-  } else {
-    return {
-      clientAuthToken: garden.clientAuthToken!,
-      projectId: garden.projectId!,
-      enterpriseDomain: garden.enterpriseDomain!,
-    }
-  }
 }

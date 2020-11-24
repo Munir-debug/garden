@@ -89,6 +89,7 @@ import {
   templateKind,
 } from "./config/module-template"
 import { TemplatedModuleConfig } from "./plugins/templated"
+import { EnterpriseApi } from "./enterprise/api"
 
 export interface ActionHandlerMap<T extends keyof PluginActionHandlers> {
   [actionName: string]: PluginActionHandlers[T]
@@ -124,13 +125,12 @@ export interface GardenOpts {
   sessionId?: string
   noEnterprise?: boolean
   variables?: PrimitiveMap
+  enterpriseApi?: EnterpriseApi
 }
 
 export interface GardenParams {
   artifactsPath: string
   buildDir: BuildDir
-  clientAuthToken: string | null
-  enterpriseDomain: string | null
   projectId: string | null
   dotIgnoreFiles: string[]
   environmentName: string
@@ -155,6 +155,7 @@ export interface GardenParams {
   vcs: VcsHandler
   workingCopyId: string
   forceRefresh?: boolean
+  enterpriseApi?: EnterpriseApi | null
 }
 
 @Profile()
@@ -170,8 +171,6 @@ export class Garden {
   private readonly taskGraph: TaskGraph
   private watcher: Watcher
   private asyncLock: any
-  public readonly clientAuthToken: string | null
-  public readonly enterpriseDomain: string | null
   public readonly projectId: string | null
   public sessionId: string | null
   public readonly configStore: ConfigStore
@@ -206,11 +205,10 @@ export class Garden {
   public readonly username?: string
   public readonly version: ModuleVersion
   private readonly forceRefresh: boolean
+  public readonly enterpriseApi: EnterpriseApi | null
 
   constructor(params: GardenParams) {
     this.buildDir = params.buildDir
-    this.clientAuthToken = params.clientAuthToken
-    this.enterpriseDomain = params.enterpriseDomain
     this.projectId = params.projectId
     this.sessionId = params.sessionId
     this.environmentName = params.environmentName
@@ -237,6 +235,7 @@ export class Garden {
     this.username = params.username
     this.vcs = params.vcs
     this.forceRefresh = !!params.forceRefresh
+    this.enterpriseApi = params.enterpriseApi || null
 
     // make sure we're on a supported platform
     const currentPlatform = platform()
@@ -325,12 +324,10 @@ export class Garden {
     const sessionId = opts.sessionId || null
     const projectId = config.id || null
     let secrets: StringMap = {}
-    let clientAuthToken: string | null = null
-    const enterpriseDomain = config.domain || null
-    if (!opts.noEnterprise) {
-      const enterpriseInitResult = await enterpriseInit({ log, projectId, enterpriseDomain, environmentName })
+    const enterpriseApi = opts.enterpriseApi || null
+    if (!opts.noEnterprise && enterpriseApi) {
+      const enterpriseInitResult = await enterpriseInit({ log, projectId, enterpriseApi, environmentName })
       secrets = enterpriseInitResult.secrets
-      clientAuthToken = enterpriseInitResult.clientAuthToken
     }
 
     config = resolveProjectConfig({
@@ -368,8 +365,6 @@ export class Garden {
     const garden = new this({
       artifactsPath,
       sessionId,
-      clientAuthToken,
-      enterpriseDomain,
       projectId,
       projectRoot,
       projectName,
@@ -394,6 +389,7 @@ export class Garden {
       username: _username,
       vcs,
       forceRefresh: opts.forceRefresh,
+      enterpriseApi,
     }) as InstanceType<T>
 
     return garden

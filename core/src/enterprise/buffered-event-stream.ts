@@ -14,7 +14,7 @@ import { got } from "../util/http"
 
 import { LogLevel } from "../logger/log-node"
 import { Garden } from "../garden"
-import { makeAuthHeader, EnterpriseApi } from "./api"
+import { EnterpriseApi, makeAuthHeader } from "./api"
 
 export type StreamEvent = {
   name: EventName
@@ -45,9 +45,9 @@ export function formatLogEntryForEventStream(entry: LogEntry): LogEntryEvent {
 }
 
 interface StreamTarget {
-  host: string
+  host?: string
   enterprise: boolean
-  clientAuthToken: string
+  clientAuthToken?: string
 }
 
 export interface ConnectBufferedEventStreamParams {
@@ -84,7 +84,7 @@ export const controlEventNames: Set<EventName> = new Set(["_workflowRunRegistere
  */
 export class BufferedEventStream {
   protected log: LogEntry
-  protected enterpriseApi: EnterpriseApi
+  protected enterpriseApi?: EnterpriseApi
   public sessionId: string
 
   protected targets: StreamTarget[]
@@ -110,7 +110,7 @@ export class BufferedEventStream {
    */
   private maxBatchBytes = 600 * 1024 // 600 kilobytes
 
-  constructor(log: LogEntry, enterpriseApi: EnterpriseApi, sessionId: string) {
+  constructor({ log, enterpriseApi, sessionId }: { log: LogEntry; enterpriseApi?: EnterpriseApi; sessionId: string }) {
     this.sessionId = sessionId
     this.log = log
     this.enterpriseApi = enterpriseApi
@@ -202,10 +202,6 @@ export class BufferedEventStream {
     this.bufferedLogEntries.push(logEntry)
   }
 
-  private getHeaders(target: StreamTarget) {
-    return makeAuthHeader(target.clientAuthToken)
-  }
-
   async flushEvents(events: StreamEvent[]) {
     if (events.length === 0) {
       return
@@ -251,10 +247,10 @@ export class BufferedEventStream {
 
     try {
       await Bluebird.map(this.targets, (target) => {
-        if (target.enterprise) {
-          return this.enterpriseApi.post(`/${path}`, data)
+        if (target.enterprise && this.enterpriseApi?.getDomain()) {
+          return this.enterpriseApi.post(this.log, `${path}`, { body: data })
         }
-        const headers = this.getHeaders(target)
+        const headers = makeAuthHeader(target.clientAuthToken || "")
         return got.post(`${target.host}/${path}`, { json: data, headers })
       })
     } catch (err) {

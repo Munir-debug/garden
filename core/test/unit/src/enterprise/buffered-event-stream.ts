@@ -24,6 +24,7 @@ describe("BufferedEventStream", () => {
       {
         host: "dummy-platform_url",
         clientAuthToken: "dummy-client-token",
+        enterprise: true,
       },
     ],
   })
@@ -34,7 +35,7 @@ describe("BufferedEventStream", () => {
 
     const log = getLogger().placeholder()
 
-    const bufferedEventStream = new BufferedEventStream(log, "dummy-session-id")
+    const bufferedEventStream = new BufferedEventStream({ log, sessionId: "dummy-session-id" })
 
     bufferedEventStream["flushEvents"] = (events: StreamEvent[]) => {
       flushedEvents.push(...events)
@@ -63,7 +64,7 @@ describe("BufferedEventStream", () => {
 
     const log = getLogger().placeholder()
 
-    const bufferedEventStream = new BufferedEventStream(log, "dummy-session-id")
+    const bufferedEventStream = new BufferedEventStream({ log, sessionId: "dummy-session-id" })
 
     bufferedEventStream["flushEvents"] = (events: StreamEvent[]) => {
       flushedEvents.push(...events)
@@ -99,7 +100,7 @@ describe("BufferedEventStream", () => {
     it("should pick records until the batch size reaches MAX_BATCH_BYTES", async () => {
       const recordSizeKb = 0.5
       const log = getLogger().placeholder()
-      const bufferedEventStream = new BufferedEventStream(log, "dummy-session-id")
+      const bufferedEventStream = new BufferedEventStream({ log, sessionId: "dummy-session-id" })
       bufferedEventStream["maxBatchBytes"] = maxBatchBytes
       // Total size is ~3MB, which exceeds MAX_BATCH_BYTES
       const records = range(100).map((_) => makeDummyRecord(recordSizeKb))
@@ -113,7 +114,7 @@ describe("BufferedEventStream", () => {
     it("should drop individual records whose payload size exceeds MAX_BATCH_BYTES", async () => {
       const recordSizeKb = 0.5
       const log = getLogger().placeholder()
-      const bufferedEventStream = new BufferedEventStream(log, "dummy-session-id")
+      const bufferedEventStream = new BufferedEventStream({ log, sessionId: "dummy-session-id" })
       bufferedEventStream["maxBatchBytes"] = maxBatchBytes
       // This record's size, exceeds MAX_BATCH_BYTES, so it should be dropped by `makeBatch`.
       const tooLarge = {

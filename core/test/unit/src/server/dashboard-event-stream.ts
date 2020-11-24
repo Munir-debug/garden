@@ -61,12 +61,15 @@ describe("DashboardEventStream", () => {
     serverA.setGarden(garden)
     serverB.setGarden(garden)
 
-    streamer = new DashboardEventStream(garden.log, garden.sessionId!)
+    streamer = new DashboardEventStream({
+      log: garden.log,
+      sessionId: garden.sessionId!,
+    })
     streamer.connect({
       garden,
       targets: [
-        { host: serverA.getUrl(), clientAuthToken: serverA.authKey },
-        { host: serverB.getUrl(), clientAuthToken: serverB.authKey },
+        { host: serverA.getUrl(), clientAuthToken: serverA.authKey, enterprise: false },
+        { host: serverB.getUrl(), clientAuthToken: serverB.authKey, enterprise: false },
       ],
     })
 
@@ -108,7 +111,10 @@ describe("DashboardEventStream", () => {
         namespace: "foo",
       })
 
-      streamer = new DashboardEventStream(garden.log, garden.sessionId!)
+      streamer = new DashboardEventStream({
+        log: garden.log,
+        sessionId: garden.sessionId!,
+      })
       streamer.connect({
         garden,
         targets: [],
@@ -136,7 +142,10 @@ describe("DashboardEventStream", () => {
       }
       await record.setCommand(values)
 
-      streamer = new DashboardEventStream(garden.log, garden.sessionId!)
+      streamer = new DashboardEventStream({
+        log: garden.log,
+        sessionId: garden.sessionId!,
+      })
       streamer.connect({
         garden,
         targets: [],
@@ -163,7 +172,10 @@ describe("DashboardEventStream", () => {
         namespace: garden.namespace,
       }
 
-      streamer = new DashboardEventStream(garden.log, garden.sessionId!)
+      streamer = new DashboardEventStream({
+        log: garden.log,
+        sessionId: garden.sessionId!,
+      })
       streamer.connect({
         garden,
         targets: [],
@@ -190,7 +202,10 @@ describe("DashboardEventStream", () => {
         namespace: garden.namespace,
       }
 
-      streamer = new DashboardEventStream(garden.log, garden.sessionId!)
+      streamer = new DashboardEventStream({
+        log: garden.log,
+        sessionId: garden.sessionId!,
+      })
       streamer.connect({
         garden,
         targets: [],
@@ -204,7 +219,10 @@ describe("DashboardEventStream", () => {
     })
 
     it("returns an empty list when no Garden instance is connected", async () => {
-      streamer = new DashboardEventStream(garden.log, garden.sessionId!)
+      streamer = new DashboardEventStream({
+        log: garden.log,
+        sessionId: garden.sessionId!,
+      })
       const processes = await streamer.updateTargets()
       expect(processes).to.eql([])
     })
@@ -212,7 +230,10 @@ describe("DashboardEventStream", () => {
 
   it("polls to update the list of target hosts", async () => {
     // Start with no targets and initiate polling
-    streamer = new DashboardEventStream(garden.log, garden.sessionId!)
+    streamer = new DashboardEventStream({
+      log: garden.log,
+      sessionId: garden.sessionId!,
+    })
     streamer.connect({
       garden,
       targets: [],
