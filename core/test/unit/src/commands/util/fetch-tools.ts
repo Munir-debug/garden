@@ -79,7 +79,7 @@ describe("FetchToolsCommand", () => {
     })
 
     garden.providerConfigs = [{ name: "test" }]
-    garden.registeredPlugins = pick(garden["registeredPlugins"], "test")
+    garden.registeredPlugins = [plugin]
 
     await garden.resolveProviders(garden.log)
 
@@ -126,7 +126,7 @@ describe("FetchToolsCommand", () => {
     })
 
     garden.providerConfigs = []
-    garden.registeredPlugins = pick(garden["registeredPlugins"], "test")
+    garden.registeredPlugins = [plugin]
 
     await garden.resolveProviders(garden.log)
 
@@ -164,7 +164,7 @@ describe("FetchToolsCommand", () => {
     })
 
     garden.providerConfigs = []
-    garden.registeredPlugins = pick(garden["registeredPlugins"], "test")
+    garden.registeredPlugins = [plugin]
 
     await garden.resolveProviders(garden.log)
 
@@ -211,7 +211,7 @@ describe("FetchToolsCommand", () => {
     })
 
     garden.providerConfigs = []
-    garden.registeredPlugins = pick(garden["registeredPlugins"], "test")
+    garden.registeredPlugins = [plugin]
 
     await garden.resolveProviders(garden.log)
 
