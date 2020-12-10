@@ -341,6 +341,7 @@ ${renderCommands(commands)}
         throw err
       } finally {
         if (!result.restartRequired) {
+          await enterpriseApi.close()
           await bufferedEventStream.close()
           await dashboardEventStream.close()
           await command.server?.close()

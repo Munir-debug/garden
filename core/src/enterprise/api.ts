@@ -81,6 +81,13 @@ export class EnterpriseApi {
     }, this.intervalMsec)
   }
 
+  async close() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId)
+      this.intervalId = null
+    }
+  }
+
   async refreshToken() {
     const token = await ClientAuthToken.findOne()
     try {
