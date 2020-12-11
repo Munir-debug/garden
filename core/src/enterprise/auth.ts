@@ -14,7 +14,6 @@ import { EventEmitter2 } from "eventemitter2"
 import bodyParser = require("koa-bodyparser")
 import Router = require("koa-router")
 import getPort = require("get-port")
-import { ClientAuthToken } from "../db/entities/client-auth-token"
 import { LogEntry } from "../logger/log-entry"
 import { InternalError } from "../exceptions"
 import { EnterpriseApi, AuthTokenResponse } from "./api"
@@ -56,12 +55,16 @@ export async function login(enterpriseApi: EnterpriseApi, log: LogEntry): Promis
   return response.token
 }
 
-/**
- * If a persisted client auth token exists, deletes it.
- */
-export async function clearAuthToken(log: LogEntry) {
-  await ClientAuthToken.getConnection().createQueryBuilder().delete().from(ClientAuthToken).execute()
-  log.debug("Cleared persisted auth token (if any)")
+export async function logout(enterpriseApi: EnterpriseApi, log: LogEntry): Promise<void> {
+  const savedToken = await enterpriseApi.readAuthToken()
+  // Ping platform with saved token (if it exists)
+  if (savedToken) {
+    log.debug("Local client auth token found, verifying it with platform...")
+    if (await enterpriseApi.checkClientAuthToken(log)) {
+      log.debug("Local client token is valid, no need for login.")
+
+    }
+  }
 }
 
 // TODO: Add analytics tracking

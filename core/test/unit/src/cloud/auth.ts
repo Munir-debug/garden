@@ -10,7 +10,6 @@ import Bluebird from "bluebird"
 import { expect } from "chai"
 import { ClientAuthToken } from "../../../../src/db/entities/client-auth-token"
 import { makeTestGardenA } from "../../../helpers"
-import { clearAuthToken } from "../../../../src/enterprise/auth"
 import { getLogger } from "../../../../src/logger/logger"
 import { gardenEnv } from "../../../../src/constants"
 import { EnterpriseApi } from "../../../../src/enterprise/api"
@@ -155,14 +154,15 @@ describe("cloud", () => {
           tokenValidity: 9999,
         }
         await enterpriseApi.saveAuthToken(testToken)
-        await clearAuthToken(garden.log)
+        await enterpriseApi.clearAuthToken()
         const count = await ClientAuthToken.count()
         expect(count).to.eql(0)
       })
 
       it("should not throw an exception if no auth token exists", async () => {
         const garden = await makeTestGardenA()
-        await clearAuthToken(garden.log)
+        const enterpriseApi = new EnterpriseApi(garden.log)
+        await enterpriseApi.clearAuthToken()
       })
     })
   })

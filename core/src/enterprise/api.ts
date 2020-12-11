@@ -184,6 +184,32 @@ export class EnterpriseApi {
 
     return token
   }
+  async logout() {
+    const token = await ClientAuthToken.findOne()
+    if (!token) {
+      // Noop when the user is not logged in
+      return
+    }
+    try {
+      const res = await this.post(this.log, "token/logout", {
+        headers: {
+          Cookie: `rt=${token?.refreshToken}`
+        }
+      })
+
+      await this.clearAuthToken()
+    } catch(error) {
+      this.log.error({ msg: "An error occurred while logging out."})
+      this.log.debug({ msg: JSON.stringify(error, null, 2)})
+    }
+  }
+  /**
+   * If a persisted client auth token exists, deletes it.
+   */
+  async clearAuthToken() {
+    await ClientAuthToken.getConnection().createQueryBuilder().delete().from(ClientAuthToken).execute()
+    this.log.debug("Cleared persisted auth token (if any)")
+  }
 
   private async apiFetch(log: LogEntry, path: string, params: ApiFetchParams, body?: any): Promise<GotResponse<any>> {
     const { method, headers } = params
@@ -198,8 +224,7 @@ export class EnterpriseApi {
       },
       json: undefined,
     }
-
-    log.debug({ msg: `PATH ${path} headers ${JSON.stringify(requestObj.headers, null, 2)}` })
+    // log.debug({ msg: `PATH ${path} headers ${JSON.stringify(requestObj.headers, null, 2)}` })
     if (body) {
       requestObj.json = body
     }

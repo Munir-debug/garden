@@ -22,12 +22,15 @@ export class LoginCommand extends Command {
   `
 
   async action({ garden, log, headerLog }: CommandParams): Promise<CommandResult> {
-    log.info({ msg: "hello" })
     printHeader(headerLog, "Login", "cloud")
     if (!garden.enterpriseApi?.getDomain()) {
       throw new ConfigurationError(`Error: Your project configuration does not specify a domain.`, {})
     }
+    log.info({ msg: `Project domain detected: opening ${garden.enterpriseApi?.getDomain()}.` })
+
     await login(garden.enterpriseApi, log)
+
+    log.info({ msg: `Successfully logged in Garden Enteprise.` })
 
     return {}
   }
